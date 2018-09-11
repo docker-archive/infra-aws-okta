@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -20,18 +19,18 @@ var (
 	assumeRoleTTL time.Duration
 )
 
-// execCmd represents the exec command
-var execCmd = &cobra.Command{
-	Use:    "exec <profile> -- <command>",
-	Short:  "exec will run the command specified with aws credentials set in the environment",
-	RunE:   execRun,
-	PreRun: execPre,
+// envCmd represents the env command
+var envCmd = &cobra.Command{
+	Use:    "env <profile>",
+	Short:  "env will set AWS environment variables in your shell",
+	RunE:   envRun,
+	PreRun: envPre,
 }
 
 func init() {
-	RootCmd.AddCommand(execCmd)
-	execCmd.Flags().DurationVarP(&sessionTTL, "session-ttl", "t", time.Hour, "Expiration time for okta role session")
-	execCmd.Flags().DurationVarP(&assumeRoleTTL, "assume-role-ttl", "a", time.Hour, "Expiration time for assumed role")
+	RootCmd.AddCommand(envCmd)
+	envCmd.Flags().DurationVarP(&sessionTTL, "session-ttl", "t", time.Hour, "Expiration time for okta role session")
+	envCmd.Flags().DurationVarP(&assumeRoleTTL, "assume-role-ttl", "a", time.Hour, "Expiration time for assumed role")
 }
 
 func loadDurationFlagFromEnv(cmd *cobra.Command, flagName string, envVar string, val *time.Duration) error {
@@ -53,7 +52,7 @@ func loadDurationFlagFromEnv(cmd *cobra.Command, flagName string, envVar string,
 	return nil
 }
 
-func execPre(cmd *cobra.Command, args []string) {
+func envPre(cmd *cobra.Command, args []string) {
 	if err := loadDurationFlagFromEnv(cmd, "session-ttl", "AWS_SESSION_TTL", &sessionTTL); err != nil {
 		fmt.Fprintln(os.Stderr, "warning: failed to parse duration from AWS_SESSION_TTL")
 	}
@@ -63,7 +62,7 @@ func execPre(cmd *cobra.Command, args []string) {
 	}
 }
 
-func execRun(cmd *cobra.Command, args []string) error {
+func envRun(cmd *cobra.Command, args []string) error {
 	dashIx := cmd.ArgsLenAtDash()
 	if dashIx == -1 {
 		return ErrCommandMissing
@@ -124,7 +123,7 @@ func execRun(cmd *cobra.Command, args []string) error {
 				Set("backend", backend).
 				Set("aws-okta-version", version).
 				Set("profile", profile).
-				Set("command", "exec"),
+				Set("command", "env"),
 		})
 	}
 
@@ -160,33 +159,6 @@ func execRun(cmd *cobra.Command, args []string) error {
 		env.Set("AWS_SECURITY_TOKEN", creds.SessionToken)
 	}
 
-	ecmd := exec.Command(command, commandArgs...)
-	ecmd.Stdin = os.Stdin
-	ecmd.Stdout = os.Stdout
-	ecmd.Stderr = os.Stderr
-	ecmd.Env = env
-
-	// Forward SIGINT, SIGTERM, SIGKILL to the child command
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGTERM, os.Interrupt, os.Kill)
-
-	go func() {
-		sig := <-sigChan
-		if ecmd.Process != nil {
-			ecmd.Process.Signal(sig)
-		}
-	}()
-
-	var waitStatus syscall.WaitStatus
-	if err := ecmd.Run(); err != nil {
-		if err != nil {
-			return err
-		}
-		if exitError, ok := err.(*exec.ExitError); ok {
-			waitStatus = exitError.Sys().(syscall.WaitStatus)
-			os.Exit(waitStatus.ExitStatus())
-		}
-	}
 	return nil
 }
 
