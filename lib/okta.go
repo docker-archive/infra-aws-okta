@@ -20,7 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/segmentio/aws-okta/lib/saml"
+	"github.com/docker-infra/aws-okta/lib/saml"
 )
 
 const (

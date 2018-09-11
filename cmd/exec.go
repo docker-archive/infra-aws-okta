@@ -11,7 +11,7 @@ import (
 
 	"github.com/99designs/keyring"
 	analytics "github.com/segmentio/analytics-go"
-	"github.com/segmentio/aws-okta/lib"
+	"github.com/docker-infra/aws-okta/lib"
 	"github.com/spf13/cobra"
 )
 
